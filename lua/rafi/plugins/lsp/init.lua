@@ -86,6 +86,66 @@ return {
 				---@type lspconfig.options
 				---@diagnostic disable: missing-fields
 				servers = {
+					-- Vue 3
+					volar = {
+						init_options = {
+							vue = {
+								hybridMode = false,
+							},
+						},
+						settings = {
+							typescript = {
+								inlayHints = {
+									enumMemberValues = {
+										enabled = true,
+									},
+									functionLikeReturnTypes = {
+										enabled = true,
+									},
+									propertyDeclarationTypes = {
+										enabled = true,
+									},
+									parameterTypes = {
+										enabled = true,
+										suppressWhenArgumentMatchesName = true,
+									},
+									variableTypes = {
+										enabled = true,
+									},
+								},
+							},
+						},
+					},
+					-- TypeScript
+					ts_ls = {
+						init_options = {
+							plugins = {
+								{
+									name = '@vue/typescript-plugin',
+									location = vim.fn.stdpath('data')
+										.. '/mason/packages/vue-language-server/node_modules/@vue/language-server',
+									languages = { 'vue' },
+								},
+							},
+						},
+						settings = {
+							typescript = {
+								tsserver = {
+									useSyntaxServer = false,
+								},
+								inlayHints = {
+									includeInlayParameterNameHints = 'all',
+									includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+									includeInlayFunctionParameterTypeHints = true,
+									includeInlayVariableTypeHints = true,
+									includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+									includeInlayPropertyDeclarationTypeHints = true,
+									includeInlayFunctionLikeReturnTypeHints = true,
+									includeInlayEnumMemberValueHints = true,
+								},
+							},
+						},
+					},
 					lua_ls = {
 						-- mason = false, -- set to false if you don't want this server to be
 						-- installed with mason Use this to add any additional keymaps for
@@ -137,13 +197,10 @@ return {
 				require('rafi.plugins.lsp.keymaps').on_attach(client, buffer)
 			end)
 
-
 			LazyVim.lsp.setup()
 			LazyVim.lsp.on_dynamic_capability(
 				require('rafi.plugins.lsp.keymaps').on_attach
 			)
-
-			LazyVim.lsp.words.setup(opts.document_highlight)
 
 			-- Diagnostics signs and highlights.
 			if vim.fn.has('nvim-0.10.0') == 0 then
@@ -216,16 +273,25 @@ return {
 			-- Enable custom rounded borders in :LspInfo window.
 			require('lspconfig.ui.windows').default_options.border = 'rounded'
 
+			require('lspconfig').volar.setup({
+				filetypes = { 'vue', 'javascript', 'typescript' },
+				root_dir = require('lspconfig').util.root_pattern(
+					'package.json',
+					'.git'
+				),
+			})
 			-- Initialize LSP servers and ensure Mason packages
 
 			-- Setup base config for all servers.
 			local servers = opts.servers
 			local has_cmp, cmp_nvim_lsp = pcall(require, 'cmp_nvim_lsp')
+			local has_blink, blink = pcall(require, 'blink.cmp')
 			local capabilities = vim.tbl_deep_extend(
 				'force',
 				{},
 				vim.lsp.protocol.make_client_capabilities(),
 				has_cmp and cmp_nvim_lsp.default_capabilities() or {},
+				has_blink and blink.get_lsp_capabilities() or {},
 				opts.capabilities or {}
 			)
 

@@ -159,7 +159,8 @@ opt.laststatus = 3        -- Global statusline
 opt.scrolloff = 4         -- Keep at least 2 lines above/below
 opt.sidescrolloff = 8     -- Keep at least 5 lines left/right
 opt.numberwidth = 2       -- Minimum number of columns to use for the line number
-opt.number = false        -- Don't show line numbers
+opt.number = true        -- Don't show line numbers
+opt.relativenumber = true
 opt.ruler = false         -- Disable default status ruler
 opt.list = true           -- Show hidden characters
 opt.foldlevel = 99
@@ -204,7 +205,6 @@ opt.fillchars = {
 	verthoriz = '╋',
 }
 
-opt.statuscolumn = [[%!v:lua.require'lazyvim.util'.ui.statuscolumn()]]
 
 if vim.fn.has('nvim-0.10') == 1 then
 	opt.smoothscroll = true

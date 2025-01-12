@@ -174,6 +174,7 @@ return {
 				'xml',
 				'yaml',
 				'zig',
+				'vue'
 			},
 		},
 		---@param opts TSConfig

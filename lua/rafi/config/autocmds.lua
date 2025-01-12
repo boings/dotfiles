@@ -166,3 +166,9 @@ vim.api.nvim_create_autocmd({ 'FileType' }, {
 		end)
 	end,
 })
+
+-- Don't auto comment on new line
+vim.api.nvim_create_autocmd('BufEnter', {
+	pattern = '',
+	command = 'set fo-=c fo-=r fo-=o'
+})
