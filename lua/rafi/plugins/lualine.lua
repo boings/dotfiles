@@ -5,25 +5,13 @@ return {
 
 	-----------------------------------------------------------------------------
 	-- Statusline plugin with many customizations.
+	-- NOTE: This extends
+	-- $XDG_DATA_HOME/nvim/lazy/LazyVim/lua/lazyvim/plugins/ui.lua
 	{
 		'nvim-lualine/lualine.nvim',
-		event = 'VeryLazy',
 		enabled = not vim.g.started_by_firenvim,
-		init = function()
-			vim.g.qf_disable_statusline = true
-			vim.g.lualine_laststatus = vim.o.laststatus
-			if vim.fn.argc(-1) > 0 then
-				-- set an empty statusline till lualine loads
-				vim.o.statusline = ' '
-			else
-				-- hide the statusline on the starter page
-				vim.o.laststatus = 0
-			end
-		end,
 		opts = function()
-			local Util = require('lazyvim.util')
-			local RafiUtil = require('rafi.util')
-			local icons = require('lazyvim.config').icons
+			local icons = LazyVim.config.icons
 
 			local function is_plugin_window()
 				return vim.bo.buftype ~= ''
@@ -45,30 +33,31 @@ return {
 			end
 
 			local active = {
-				bg = RafiUtil.ui.bg('StatusLine'),
-				fg = RafiUtil.ui.fg('StatusLine'),
+				bg = Snacks.util.color('StatusLine', 'bg'),
+				fg = Snacks.util.color('StatusLine'),
 			}
 			local inactive = {
-				bg = RafiUtil.ui.bg('StatusLineNC'),
-				fg = RafiUtil.ui.fg('StatusLineNC'),
+				bg = Snacks.util.color('StatusLineNC', 'bg'),
+				fg = Snacks.util.color('StatusLineNC'),
 			}
 
+			local ColorUtil = require('rafi.util.color')
 			local theme = {
 				normal = {
 					a = active,
 					b = active,
 					c = active,
 					x = {
-						fg = RafiUtil.color.brightness_modifier(active.bg, -80),
+						fg = ColorUtil.brightness_modifier(active.bg, -80),
 						bg = active.bg,
 					},
 					y = {
 						fg = active.fg,
-						bg = RafiUtil.color.brightness_modifier(active.bg, -20),
+						bg = ColorUtil.brightness_modifier(active.bg, -20),
 					},
 					z = {
 						fg = active.fg,
-						bg = RafiUtil.color.brightness_modifier(active.bg, 63),
+						bg = ColorUtil.brightness_modifier(active.bg, 63),
 					},
 				},
 				inactive = {
@@ -83,18 +72,20 @@ return {
 
 			vim.o.laststatus = vim.g.lualine_laststatus
 
-			return {
+			local opts = {
 				options = {
 					theme = theme,
-					globalstatus = true,
+					globalstatus = vim.o.laststatus == 3,
 					disabled_filetypes = {
-						statusline = { 'dashboard', 'alpha', 'starter' },
+						statusline = {
+							'dashboard',
+							'alpha',
+							'ministarter',
+							'snacks_dashboard',
+						},
 					},
 				},
-				extensions = {
-					'man',
-					'lazy',
-				},
+				extensions = { 'lazy', 'fzf', 'man' },
 				sections = {
 					lualine_a = {
 						-- Left edge block.
@@ -106,7 +97,7 @@ return {
 							separator = '',
 							color = function()
 								local hl = is_file_window() and 'Statement' or 'Function'
-								return LazyVim.ui.fg(hl)
+								return { fg = Snacks.util.color(hl) }
 							end,
 						},
 						-- Readonly/zoomed/hash symbol.
@@ -123,8 +114,6 @@ return {
 								return ''
 							end,
 						},
-					},
-					lualine_b = {
 						{
 							'branch',
 							cond = is_file_window,
@@ -136,7 +125,7 @@ return {
 						},
 						LazyVim.lualine.root_dir(),
 						{
-							RafiUtil.lualine.plugin_title(),
+							require('rafi.util.lualine').plugin_title(),
 							padding = { left = 0, right = 1 },
 							cond = is_plugin_window,
 						},
@@ -144,28 +133,42 @@ return {
 							'filetype',
 							icon_only = true,
 							padding = { left = 1, right = 0 },
+							separator = { right = '' },
 							cond = is_file_window,
 						},
 					},
-					lualine_c = {
+					lualine_b = {
+						-- File-path, toggle navic structure when clicked.
 						{
-							LazyVim.lualine.pretty_path(),
+							LazyVim.lualine.pretty_path({ length = 5 }),
 							color = { fg = '#D7D7BC' },
+							separator = '',
 							cond = is_file_window,
 							on_click = function()
-								vim.g.structure_status = not vim.g.structure_status
+								vim.g.trouble_lualine = not vim.g.trouble_lualine
 								require('lualine').refresh()
 							end,
 						},
+						-- Show buffer number in terminal
 						{
+							separator = '',
+							padding = { left = 1, right = 1 },
 							function()
-								return '#' .. vim.b['toggle_number']
+								local s = vim.b.term_title or ''
+								local n = vim.b.toggle_number or ''
+								if vim.b.snacks_terminal then
+									n = vim.b.snacks_terminal.id
+								end
+								return s .. (n and ' #' .. n or '')
 							end,
 							cond = function()
-								return vim.bo.buftype == 'terminal'
+								return vim.bo.buftype == 'snacks_terminal'
+									or vim.bo.buftype == 'terminal'
 							end,
 						},
+						-- Quickfix/location list title
 						{
+							separator = '',
 							function()
 								if vim.fn.win_gettype() == 'loclist' then
 									return vim.fn.getloclist(0, { title = 0 }).title
@@ -179,11 +182,12 @@ return {
 						},
 
 						-- Whitespace trails
+						-- stylua: ignore
 						{
-							RafiUtil.lualine.trails(),
+							require('rafi.util.lualine').trails(),
 							cond = is_file_window,
 							padding = { left = 1, right = 0 },
-							color = LazyVim.ui.fg('Identifier'),
+							color = function() return { fg = Snacks.util.color('Identifier') } end,
 						},
 
 						{
@@ -196,6 +200,7 @@ return {
 							},
 						},
 
+						-- Search count
 						{
 							function()
 								if vim.v.hlsearch == 0 then
@@ -219,25 +224,10 @@ return {
 							separator = '',
 							padding = { left = 1, right = 0 },
 						},
-
-						{
-							function()
-								return require('nvim-navic').get_location()
-							end,
-							padding = { left = 1, right = 0 },
-							cond = function()
-								return vim.g.structure_status
-									and is_min_width(100)
-									and package.loaded['nvim-navic']
-									and require('nvim-navic').is_available()
-							end,
-							on_click = function()
-								vim.g.structure_status = not vim.g.structure_status
-								require('lualine').refresh()
-							end,
-						},
 					},
+					lualine_c = {},
 					lualine_x = {
+						Snacks.profiler.status(),
 						-- Diff (git)
 						{
 							'diff',
@@ -265,6 +255,7 @@ return {
 							end,
 						},
 						-- showcmd
+						-- stylua: ignore
 						{
 							function()
 								---@diagnostic disable-next-line: undefined-field
@@ -275,9 +266,10 @@ return {
 									---@diagnostic disable-next-line: undefined-field
 									and require('noice').api.status.command.has()
 							end,
-							color = LazyVim.ui.fg('Statement'),
+							color = function() return { fg = Snacks.util.color('Statement') } end,
 						},
 						-- showmode
+						-- stylua: ignore
 						{
 							function()
 								---@diagnostic disable-next-line: undefined-field
@@ -288,20 +280,21 @@ return {
 									---@diagnostic disable-next-line: undefined-field
 									and require('noice').api.status.mode.has()
 							end,
-							color = LazyVim.ui.fg('Constant'),
+							color = function() return { fg = Snacks.util.color('Constant') } end,
 						},
 						-- dap status
 						-- stylua: ignore
 						{
 							function() return '  ' .. require('dap').status() end,
 							cond = function () return package.loaded['dap'] and require('dap').status() ~= '' end,
-							color = LazyVim.ui.fg('Debug'),
+							color = function() return { fg = Snacks.util.color('Debug') } end,
 						},
 						-- lazy.nvim updates
+						-- stylua: ignore
 						{
 							require('lazy.status').updates,
 							cond = require('lazy.status').has_updates,
-							color = LazyVim.ui.fg('Comment'),
+							color = function() return { fg = Snacks.util.color('Comment') } end,
 							on_click = function()
 								vim.cmd([[Lazy]])
 							end,
@@ -309,7 +302,7 @@ return {
 					},
 					lualine_y = {
 						{
-							RafiUtil.lualine.filemedia(),
+							require('rafi.util.lualine').filemedia(),
 							padding = 1,
 							cond = function()
 								return is_min_width(70)
@@ -338,19 +331,12 @@ return {
 							'filetype',
 							icon_only = true,
 							colored = false,
+							separator = '',
 							padding = { left = 1, right = 0 },
 						},
-						{ Util.lualine.pretty_path(), padding = { left = 1, right = 0 } },
 						{
-							function()
-								return vim.bo.modified
-										and vim.bo.buftype == ''
-										and icons.status.filename.modified
-									or ''
-							end,
-							cond = is_file_window,
-							padding = 1,
-							color = { fg = RafiUtil.ui.bg('DiffDelete') },
+							LazyVim.lualine.pretty_path({ length = 3 }),
+							padding = { left = 1, right = 0 },
 						},
 					},
 					lualine_b = {},
@@ -367,6 +353,28 @@ return {
 					},
 				},
 			}
+
+			-- Show code structure in statusline.
+			-- Allow it to be overriden for some buffer types (see autocmds).
+			if vim.g.trouble_lualine and LazyVim.has('trouble.nvim') then
+				local trouble = require('trouble')
+				local symbols = trouble.statusline({
+					mode = 'symbols',
+					groups = {},
+					title = false,
+					filter = { range = true },
+					format = '{kind_icon}{symbol.name:Normal}',
+					hl_group = 'lualine_c_normal',
+				})
+				table.insert(opts.sections.lualine_c, {
+					symbols and symbols.get,
+					cond = function()
+						return vim.b.trouble_lualine ~= false and symbols.has()
+					end,
+				})
+			end
+
+			return opts
 		end,
 	},
 }
